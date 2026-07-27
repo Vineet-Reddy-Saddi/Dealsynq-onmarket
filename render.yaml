@@ -29,3 +29,5 @@ services:
         value: "3.12.4"
       - key: DB_URL          # direct-download URL for webapp/listings.db
         sync: false          # set this in the Render dashboard, not in git
+      - key: DETAILS_DB_URL  # direct-download URL for the slim data/details.db
+        sync: false          # optional -- without it the drawer shows card data only

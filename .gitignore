@@ -11,6 +11,9 @@ data/_*.log
 webapp/listings.db
 webapp/listings.db-wal
 webapp/listings.db-shm
+# slim deploy copy of details.db (scripts/build_deploy_details.py); hosted as a
+# release asset, not committed
+webapp/details_deploy.db
 
 # Python
 __pycache__/

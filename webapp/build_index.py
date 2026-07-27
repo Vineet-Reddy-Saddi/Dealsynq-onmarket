@@ -120,6 +120,24 @@ def _sane_price(price, sqft):
     return price
 
 
+# Display-only coordinate sanity, same principle as the price clamp above. 0.01% of
+# listings carry corrupted lat/lng from the source's OWN geocoder, not from our parsing
+# (verified against real addresses): sentinel placeholders like (1,1)/(23,23)/(90,90),
+# or a simple longitude sign-flip that drops a Georgia listing near India. A generous
+# North-America-plus-territories box catches these without excluding any real market —
+# AK/HI/PR are all inside it.
+US_LAT_MIN, US_LAT_MAX = 15.0, 72.0
+US_LNG_MIN, US_LNG_MAX = -180.0, -64.0
+
+
+def _sane_coords(lat, lng):
+    if lat is None or lng is None:
+        return None, None
+    if not (US_LAT_MIN <= lat <= US_LAT_MAX and US_LNG_MIN <= lng <= US_LNG_MAX):
+        return None, None
+    return lat, lng
+
+
 def build() -> None:
     if DB.exists():
         DB.unlink()
@@ -150,7 +168,8 @@ def build() -> None:
                 seen.add(key)
                 vals = [row.get(c) or None for c in COLS]
                 sqft_n = _f(row.get("sqft"))
-                vals += [_f(row.get("lat")), _f(row.get("lng")),
+                lat_r, lng_r = _sane_coords(_f(row.get("lat")), _f(row.get("lng")))
+                vals += [lat_r, lng_r,
                          _sane_price(_f(row.get("price")), sqft_n), sqft_n,
                          _image(row.get("raw_json"))]
                 batch.append(vals)
@@ -232,7 +251,7 @@ def _backfill_from_details(con) -> None:
         if raw:
             try:
                 loc = (json.loads(raw).get("listing") or {}).get("location") or {}
-                lat, lng = loc.get("latitude"), loc.get("longitude")
+                lat, lng = _sane_coords(loc.get("latitude"), loc.get("longitude"))
             except (ValueError, AttributeError):
                 pass
         if lat is None and cap is None and not yr:
