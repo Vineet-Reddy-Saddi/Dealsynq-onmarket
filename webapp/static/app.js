@@ -92,7 +92,13 @@ function pinIcon(it, active) {
   // A bare "—" reads as a rendering glitch rather than a deliberate "no listed price"
   // -- spell it out instead.
   const label = p == null ? 'Call' : (isLease ? '$' + Number(p).toFixed(0) : money(p));
-  const w = Math.max(40, 14 + String(label).length * 7.4);
+  // Bold Montserrat digits run wider than this used to assume (7.4px/char left the
+  // background pill a few px narrower than "$995K" actually renders at, so the text
+  // visibly overran the pill's edge -- looked "cut off" rather than clipped, but
+  // equally wrong). Padding also needs to be accounted for explicitly rather than
+  // folded into a fudge factor.
+  const PAD_X = 9, BORDER = 1.5, CHAR_W = 8.6;
+  const w = Math.max(40, String(label).length * CHAR_W + PAD_X * 2 + BORDER * 2);
   return L.divIcon({
     html: `<div class="pin ${active ? 'on' : ''} ${isLease ? 'lease' : 'sale'}">${esc(label)}</div>`,
     className: '', iconSize: [w, 24], iconAnchor: [w / 2, 26],
@@ -234,7 +240,13 @@ async function loadMap() {
           latlng = [it.lat_r, it.lng_r];
         } else {
           const angle = (2 * Math.PI * i) / n;
-          const radius = 16 + Math.min(n, 8) * 2;
+          // Circle-packing math, not a guessed constant: for n pins evenly spaced on a
+          // ring of radius R, the gap between neighbours is 2R*sin(pi/n). The previous
+          // fixed "16 + 2px/pin" radius stayed far below what a ~60px-wide price pill
+          // needs even at n=3 (22px vs the ~35px actually required), so spread pins
+          // still visually overlapped -- just no longer pixel-identical.
+          const PIN_W = 60, GAP = 10;
+          const radius = Math.max(20, (PIN_W + GAP) / (2 * Math.sin(Math.PI / n)));
           const pt = L.point(center.x + radius * Math.cos(angle), center.y + radius * Math.sin(angle));
           latlng = map.containerPointToLatLng(pt);
         }
@@ -623,6 +635,13 @@ map.on('moveend zoomend', () => {
 /* ---------------------------------------------------------------- boot ---- */
 (async function boot() {
   await whenSized();       // never query with a collapsed bbox
+
+  // Restore whatever the URL describes before the first query, then open the property
+  // it names (so a shared link lands directly on that listing).
+  const pk = applyUrl();
+  refreshAll();             // map + list data first -- don't block it on /api/stats below
+  if (pk) openDetail(Number(pk), true);
+
   try {
     const s = await (await fetch('/api/stats')).json();
     if (s.lifecycle) {
@@ -648,10 +667,4 @@ map.on('moveend zoomend', () => {
     fill('source', s.sources);
     fill('subtype', s.subtypes);
   } catch { /* filters degrade to defaults; map still works */ }
-
-  // Restore whatever the URL describes before the first query, then open the property
-  // it names (so a shared link lands directly on that listing).
-  const pk = applyUrl();
-  refreshAll();
-  if (pk) openDetail(Number(pk), true);
 })();

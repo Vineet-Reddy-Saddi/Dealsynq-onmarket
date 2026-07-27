@@ -301,6 +301,12 @@ strong, b { font-weight: 600; }
   z-index: 1001; display: flex; flex-direction: column;
   background: var(--surface); box-shadow: var(--shadow-lg);
 }
+/* This unconditional `display: flex` above has the same specificity as the browser's
+ * default `[hidden] { display: none }` rule, and an author stylesheet always loads
+ * after the UA one -- so setting element.hidden = true had NO visual effect at all:
+ * the drawer stayed full-size, on top, and clickable, permanently, after every close.
+ * A more specific selector is needed to actually win. */
+.drawer[hidden] { display: none; }
 .dclose {
   position: absolute; right: 16px; top: 16px; z-index: 3;
   width: 34px; height: 34px; border-radius: 50%; cursor: pointer;

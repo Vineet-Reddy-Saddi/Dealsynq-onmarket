@@ -101,6 +101,7 @@ def _conn() -> sqlite3.Connection:
 CON = _conn()
 HAS_DETAILS = bool(CON.execute(
     "SELECT COUNT(*) FROM pragma_database_list WHERE name='det'").fetchone()[0])
+_STATS_CACHE: dict | None = None
 
 
 def _where(q: dict, *, require_geo: bool = True) -> tuple[str, list]:
@@ -204,6 +205,12 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- endpoints ---------------------------------------------------------
     def _stats(self) -> dict:
+        # listings.db is a read-only deploy artifact (docstring above): it never
+        # changes without a process restart, so the aggregate scans below (9 full
+        # table/index scans) only need to run once per process, not once per request.
+        global _STATS_CACHE
+        if _STATS_CACHE is not None:
+            return _STATS_CACHE
         c = CON
         total = c.execute("SELECT COUNT(*) FROM listings").fetchone()[0]
         by_txn = {r[0]: r[1] for r in c.execute(
@@ -229,9 +236,10 @@ class Handler(BaseHTTPRequestHandler):
         fresh = c.execute(
             "SELECT COUNT(*) FROM listings WHERE (delisted_on IS NULL OR delisted_on='') "
             "AND first_seen >= ?", (cutoff,)).fetchone()[0]
-        return {"total": total, "byTxn": by_txn, "states": states,
+        _STATS_CACHE = {"total": total, "byTxn": by_txn, "states": states,
                 "sources": sources, "subtypes": subtypes, "mapCap": MAP_CAP,
                 "lifecycle": {"active": active, "delisted": delisted, "new": fresh}}
+        return _STATS_CACHE
 
     def _clusters(self, q: dict) -> dict:
         """Map layer: aggregate cells when zoomed out, individual pins when zoomed in."""
