@@ -138,6 +138,42 @@ def _sane_coords(lat, lng):
     return lat, lng
 
 
+# US-only scope: some sources (Crexi, NAI Global -- a genuinely global network, Lee
+# Associates) legitimately list real, correctly-geocoded Canadian/Mexican/Caribbean
+# properties. Real listings, not a data bug -- so the geographic box above can't (and
+# shouldn't) catch them; they need an explicit state/zip check instead.
+#
+# Must match webapp/server.py's US_STATES -- keep the two in sync if territories change.
+US_STATES = frozenset("""
+AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO
+MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY
+PR VI GU AS MP
+""".split())
+
+# A few sources spell out "Virgin Islands" / "St. Croix" instead of using the VI code --
+# real US territory, just not normalized to the 2-letter form. Treat as US rather than
+# excluding real listings over a labeling difference.
+_US_STATE_ALIASES = {"st. croix", "us virgin islands", "virgin islands"}
+
+_US_ZIP = re.compile(r"^\d{5}(-\d{4})?$")
+
+
+def _is_us(state, zip_code) -> bool:
+    """True unless there's positive evidence a listing is outside the US.
+
+    An explicit non-US state code (a Canadian province, a Mexican state) is decisive.
+    A blank state is NOT evidence either way -- most blank-state rows are real US
+    listings with an incomplete source record (844 of 978 in one audit) -- so those are
+    only excluded when the zip *also* doesn't look like a US zip (e.g. a Canadian postal
+    code), which is the actual signal for the small remainder that are foreign.
+    """
+    st = (state or "").strip()
+    if st:
+        return st.upper() in US_STATES or st.lower() in _US_STATE_ALIASES
+    z = (zip_code or "").strip()
+    return bool(_US_ZIP.match(z)) if z else True  # no zip either -> no evidence, keep it
+
+
 def build() -> None:
     if DB.exists():
         DB.unlink()
@@ -169,6 +205,8 @@ def build() -> None:
                 vals = [row.get(c) or None for c in COLS]
                 sqft_n = _f(row.get("sqft"))
                 lat_r, lng_r = _sane_coords(_f(row.get("lat")), _f(row.get("lng")))
+                if lat_r is not None and not _is_us(row.get("state"), row.get("zip")):
+                    lat_r = lng_r = None
                 vals += [lat_r, lng_r,
                          _sane_price(_f(row.get("price")), sqft_n), sqft_n,
                          _image(row.get("raw_json"))]
@@ -244,6 +282,14 @@ def _backfill_from_details(con) -> None:
         det.close()
         return
 
+    # Coordinates recovered here come from the enrichment record, not the card feed, so
+    # the US/non-US check needs the listing's OWN state+zip (already loaded into
+    # `listings` from the CSV) -- pull that into memory once rather than a query per row.
+    state_zip = {
+        (s, i): (st, z) for s, i, st, z in
+        con.execute("SELECT source_site, source_listing_id, state, zip FROM listings")
+    }
+
     geo = 0
     upd = []
     for site, lid, cap, yr, raw in rows:
@@ -254,6 +300,10 @@ def _backfill_from_details(con) -> None:
                 lat, lng = _sane_coords(loc.get("latitude"), loc.get("longitude"))
             except (ValueError, AttributeError):
                 pass
+        if lat is not None:
+            st, z = state_zip.get((site, lid), (None, None))
+            if not _is_us(st, z):
+                lat = lng = None
         if lat is None and cap is None and not yr:
             continue
         upd.append((lat, lng, cap, yr, site, lid))
