@@ -19,7 +19,10 @@ services:
     runtime: python
     plan: free
     region: oregon
-    buildCommand: "./render-build.sh"
+    # `bash render-build.sh` (not `./render-build.sh`) so this runs even if the file's
+    # executable bit gets lost — which happens by default when committing from Windows,
+    # since Windows has no native Unix permission bits for git to preserve.
+    buildCommand: "bash render-build.sh"
     startCommand: "python webapp/server.py $PORT"
     envVars:
       - key: PYTHON_VERSION
