@@ -1,0 +1,54 @@
+{
+  "_comment": "Buildout-powered sites. `hash` is the plugin token from the site's Buildout embed (grep the page for token:\"<40 hex>\"; data endpoint is buildout.com/plugins/{hash}/inventory). One BuildoutAdapter per entry. Tokens below were extracted from each site's embed; Mid-America + TSCG confirmed live against the API. Buildout IP-rate-limits bursts, so validate one at a time. Optional per-site tuning: extra_retail / exclude_retail (subtype names).",
+    "_not_buildout": "expcommercial = Next.js (own API); newmark = Algolia (app 5EP10X9C13, searchKey b9135619f78bf538f0142a17544f0c64); daum = server-side embed, no client token. These need their own adapters, not Buildout.",
+  "sites": [
+    {
+      "site_key": "lee-associates",
+      "name": "Lee & Associates",
+      "domain": "www.lee-associates.com",
+      "hash": "9a64a93980aeae8db347e72cdfa8ca61017acc9a"
+    },
+    {
+      "site_key": "naiglobal",
+      "name": "NAI Global",
+      "domain": "www.naiglobal.com",
+      "hash": "4fc4c741a2b49384c474ebc81ede3d108d02ca1c"
+    },
+    {
+      "site_key": "bhhs",
+      "name": "Berkshire Hathaway HomeServices Commercial",
+      "domain": "www.bhhs.com",
+      "hash": "8b5c993841bbb12ac2637d4948ee7fa50691e7e6"
+    },
+    {
+      "site_key": "tscg",
+      "name": "TSCG",
+      "domain": "tscg.com",
+      "hash": "ba668fad90e207a3d5cfc0037b6206bf0f5d32da"
+    },
+    {
+      "site_key": "midamerica",
+      "name": "Mid-America Real Estate",
+      "domain": "midamericagrp.com",
+      "hash": "576ddf9c9c27a7b27c07039a47dbb4a3d8c933ae"
+    },
+    {
+      "site_key": "franklinst",
+      "name": "Franklin Street",
+      "domain": "franklinst.com",
+      "hash": "a234450b432b2b2bebc1ace7e6f692e4489bde70"
+    },
+    {
+      "site_key": "svn",
+      "name": "SVN",
+      "domain": "svn.com",
+      "hash": "b933480474026c41d248b77156c84aef37dcac68"
+    },
+    {
+      "site_key": "fortis",
+      "name": "Fortis Net Lease",
+      "domain": "fortisnetlease.com",
+      "hash": "8c286e4a49fdc706359ab9c041e0db1465de1fcf"
+    }
+  ]
+}

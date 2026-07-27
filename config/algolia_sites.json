@@ -1,0 +1,100 @@
+{
+  "_comment": "Algolia-backed sites. Each brokerage runs its own Algolia app/index with its own field names, so every site carries a full field map. Keys are the public search-only keys embedded in each site's front-end JS (safe to store). property_type is facetable on both sites (server-side filter). txn.facetable says whether the sale/lease field can be filtered server-side (Newmark: yes; RIPCO: it's a nested non-facetable field, so we filter client-side). Dotted paths (a.b) and arrays are supported by the field getter. Newmark keys: captured from nmrk.com; RIPCO: from ripcony.com. Horvath & Tremblay deferred \u2014 its listings appear to be Salesforce-backed, Algolia config not exposed client-side.",
+  "sites": [
+    {
+      "site_key": "newmark",
+      "name": "Newmark",
+      "app_id": "5EP10X9C13",
+      "api_key": "b9135619f78bf538f0142a17544f0c64",
+      "index": "prod_entries",
+      "base_filters": [
+        [
+          "sectionGroup:Properties"
+        ],
+        [
+          "country_code:US"
+        ]
+      ],
+      "txn": {
+        "field": "saleOrLease",
+        "facetable": true,
+        "sale": "Sale",
+        "lease": "Lease"
+      },
+      "ptype": {
+        "field": "property_types",
+        "retail": [
+          "Retail",
+          "Street Retail",
+          "Strip Center",
+          "Regional Mall",
+          "Retail Pad",
+          "Retail-Pad"
+        ]
+      },
+      "map": {
+        "id": "objectID",
+        "name": "title",
+        "url": "url",
+        "address": "address",
+        "city": "city",
+        "state": "state_code",
+        "zip": "zip",
+        "county": "county",
+        "lat": "latitude",
+        "lng": "longitude",
+        "price": "sale_price",
+        "sqft": "building_size_sf",
+        "lot_size_acres": "lot_size_acres",
+        "subtype": "property_subtype",
+        "brokerage": "broker_name",
+        "listed_on": "postDate",
+        "updated_on": "updateDate",
+        "status": "status"
+      },
+      "base_url": "https://www.nmrk.com"
+    },
+    {
+      "site_key": "ripco",
+      "name": "RIPCO",
+      "app_id": "4R6E4LACSC",
+      "api_key": "a182911dfb16c8d4ae5c948a78982d83",
+      "index": "wp_posts_property-listings",
+      "base_filters": [],
+      "txn": {
+        "field": "lease_or_sale",
+        "facetable": false,
+        "sale": "sale",
+        "lease": "lease"
+      },
+      "ptype": {
+        "field": "taxonomies.property_type",
+        "retail": [
+          "Street Retail",
+          "Shopping Center",
+          "Restaurant Permitted Use",
+          "Restaurant Former Space",
+          "Pad Site/Drive-Thru",
+          "Freestanding",
+          "Mixed Use",
+          "Restaurant Permitted"
+        ]
+      },
+      "map": {
+        "id": "objectID",
+        "name": "post_title",
+        "url": "permalink",
+        "city": "region",
+        "zip": "zip",
+        "lat": "coordinates.lat",
+        "lng": "coordinates.lng",
+        "sqft": "total_sqft",
+        "subtype": "taxonomies.property_type",
+        "brokerage": "post_author.display_name",
+        "listed_on": "post_date_formatted",
+        "updated_on": "post_modified"
+      },
+      "base_url": "https://www.ripcony.com"
+    }
+  ]
+}

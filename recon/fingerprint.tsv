@@ -1,0 +1,85 @@
+id	name	status	server	antibot	signals	finalurl
+1	LoopNet	403	AkamaiGHost	Akamai;	[431b]	https://www.loopnet.com/search/retail-properties/usa/for-sale/
+4	JLL	403	AkamaiGHost	Akamai;	[401b]	https://invest.jll.com/us/en/listings/retail
+6	Colliers	403	cloudflare	Cloudflare;CF-Challenge!;	[5809b]	https://www.colliers.com/en/properties
+3	CBRE	200	cloudflare	Cloudflare;	[296552b]	https://www.cbre.com/properties
+2	Crexi	200	cloudflare	Cloudflare;CF-Challenge!;	[6450b]	https://www.crexi.com/properties/retail
+8	MarcusMillichap	200		-	LD-JSON;[37186b]	https://www.marcusmillichap.com/properties
+9	TenX	403		-	[409b]	https://www.ten-x.com/buy-commercial-real-estate
+5	CushmanWakefield	200	Microsoft-IIS/10.0	-	[87332b]	https://www.cushmanwakefield.com/en/properties/properties-for-sale
+7	Newmark	200	cloudflare	Cloudflare;CF-Challenge!;	Algolia;Buildout/PropCapsule;LD-JSON;[176133b]	https://www.nmrk.com/properties
+11	Northmarq	200	cloudflare	Cloudflare;	LD-JSON;[206931b]	https://www.northmarq.com/properties
+12	AvisonYoung	200	cloudflare	Cloudflare;	[123839b]	https://www.avisonyoung.com/properties
+10	Matthews	200	Vercel	-	Next;WordPress;LD-JSON;[520238b]	https://www.matthews.com/listings
+15	LeeAssociates	200	cloudflare	Cloudflare;	WordPress;Buildout/PropCapsule;LD-JSON;[112533b]	https://www.lee-associates.com/properties/
+16	Transwestern	200	Microsoft-IIS/10.0	-	LD-JSON;[102707b]	https://transwestern.com/properties
+17	EastdilSecured	200		-	WordPress;LD-JSON;[101942b]	https://www.eastdilsecured.com/
+13	NAIGlobal	404	nginx	-	WordPress;Buildout/PropCapsule;LD-JSON;[127103b]	https://www.naiglobal.com/investment-listings/
+14	SVN	200	nginx/1.24.0 (Ubuntu)	-	WordPress;Buildout/PropCapsule;LD-JSON;[96982b]	https://svn.com/
+18	MidAmerica	200	cloudflare	Cloudflare;	WordPress;Buildout/PropCapsule;LD-JSON;[298729b]	https://midamericagrp.com/property-listings/
+20	SRS	404	cloudflare	Cloudflare;CF-Challenge!;	WordPress;LD-JSON;[108971b]	https://srsre.com/listings
+22	RCM1	200	nginx	-	WordPress;LD-JSON;[45063b]	https://www.rcm1.com/marketplace/
+21	SHOP	404	cloudflare	Cloudflare;CF-Challenge!;	[26005b]	https://shopcompanies.com/listings/
+23	PropertyShark	403	cloudflare	Cloudflare;CF-Challenge!;	[5822b]	https://www.propertyshark.com/cre/commercial-real-estate/us/
+19	HorvathTremblay	404	cloudflare	Cloudflare;CF-Challenge!;	Algolia;WordPress;LD-JSON;Salesforce;[1223504b]	https://horvathtremblay.com/listings/
+25	CommercialCafe	403	cloudflare	Cloudflare;CF-Challenge!;	[5712b]	https://www.commercialcafe.com/
+26	CommercialSearch	403	cloudflare	Cloudflare;CF-Challenge!;	[5714b]	https://www.commercialsearch.com/
+27	Showcase	403	AkamaiGHost	Akamai;	[368b]	https://www.showcase.com/
+28	CityFeet	403	AkamaiGHost	Akamai;	[368b]	https://www.cityfeet.com/
+24	RealNex	200		-	CRE-platform;[168198b]	https://realnex.com/marketplace
+29	Brevitas	200	cloudflare	Cloudflare;	Buildout/PropCapsule;CRE-platform;[227324b]	https://brevitas.com/
+30	MoodysCRE	200	cloudflare	Cloudflare;CF-Challenge!;	CRE-platform;[8065b]	https://www.moodyscre.com/marketplace/
+33	TotalCommercial	200	Apache/2.4.29	-	[16056b]	https://totalcommercial.com/
+32	CIMLS	200	nginx	-	LD-JSON;[14699b]	https://www.cimls.com/
+35	CRECoai	200		-	[6024b]	https://www.creco.ai/
+36	RealtyZapp	200	Microsoft-IIS/10.0	-	LD-JSON;[77887b]	https://realtyzapp.com/
+34	DealStream	200		-	LD-JSON;[123395b]	https://dealstream.com/real-estate/commercial
+39	MiamiRealtors	403	cloudflare	Cloudflare;CF-Challenge!;	[1485b]	https://www.miamirealtors.com/commercial/commercial-mls/
+37	CommercialMLS_CBA	200	Microsoft-IIS/10.0	-	CRE-platform;[17721b]	https://www.commercialmls.com/search/usersearch
+38	MNCAR	200	nginx	-	WordPress;CRE-platform;LD-JSON;[89372b]	https://www.mncar.org/public-commercial-listing/
+41	LandSearch	403	cloudflare	Cloudflare;CF-Challenge!;	[5738b]	https://www.landsearch.com/commercial
+42	LandWatch	403	AkamaiGHost	Akamai;	[394b]	https://www.landwatch.com/commercial-property
+43	LandAndFarm	403	AkamaiGHost	Akamai;	[423b]	https://www.landandfarm.com/search/commercial-land-for-sale/
+40	SCCommercialMLS	200	LiteSpeed	-	WordPress;LD-JSON;[116905b]	https://www.sccommercialmls.com/
+46	RIMarketplace	200	AmazonS3	-	[3068b]	https://rimarketplace.com/auctions
+45	CommercialFlip	200	cloudflare	Cloudflare;CF-Challenge!;	LD-JSON;[47263b]	https://www.commercialflip.com/
+44	LandHub	200	cloudflare	Cloudflare;CF-Challenge!;	NEXT_DATA;Next;LD-JSON;[83390b]	https://www.landhub.com/property-for-sale/commercial-land-for-sale
+49	Bid4Assets	200	Microsoft-IIS/10.0	-	[43958b]	https://www.bid4assets.com/commercial-real-estate-auctions
+47	Hilco	200	cloudflare	Cloudflare;CF-Challenge!;	WordPress;Buildout/PropCapsule;LD-JSON;[53318b]	https://hilcorealestatesales.com/listings/
+50	GovDeals	200		Akamai;	[70402b]	https://www.govdeals.com/en/commercial-property
+52	Treasury	200	AkamaiGHost	Akamai;	[33260b]	https://www.treasury.gov/auctions/treasury/rp/index.shtml
+51	GSA	200		-	WordPress;ArcGIS;Salesforce;[317658b]	https://disposal.gsa.gov/s/searchproperty
+48	WilliamsAuction	200	Pepyaka	-	WordPress;LD-JSON;[1404283b]	https://www.williamsauction.com/
+54	AuctionCom	200		Imperva/Incapsula;	[212b]	https://www.auction.com/
+53	IRSAuctions	200	nginx	Akamai;	[40074b]	https://www.irsauctions.gov/
+55	ParamountRealty	200	cloudflare	Cloudflare;CF-Challenge!;	WordPress;LD-JSON;[293574b]	https://www.prusa.com/auctions/
+60	Century21	200	Apache/2.4.62	-	[31252b]	https://commercial.century21.com/
+56	Tranzon	200	Microsoft-IIS/10.0	-	[91563b]	https://www.tranzon.com/buy-commercial-property-auctions.aspx
+57	LastBid	200	Apache	-	WordPress;LD-JSON;[86944b]	https://www.lastbidrealestate.com/commercial-property-auctions/
+58	FRE	200	nginx	-	LD-JSON;[184424b]	https://fre.com/
+62	KWCommercial	200	cloudflare	Cloudflare;CF-Challenge!;	WordPress;CRE-platform;LD-JSON;[45424b]	https://kwcommercial.com/properties/
+59	ColdwellBanker	200		-	CRE-platform;[206612b]	https://www.cbcworldwide.com/search
+61	REMAX	200	nginx	-	WordPress;CRE-platform;LD-JSON;[161332b]	https://www.remaxcommercial.com/company-listing/
+65	Berkadia	200	cloudflare	Cloudflare;CF-Challenge!;	Salesforce;[2236b]	https://www.berkadia.com/properties
+63	eXpCommercial	200	cloudflare	Cloudflare;	NEXT_DATA;Next;Buildout/PropCapsule;LD-JSON;[241937b]	https://www.expcommercial.com/listings
+64	BHHS	200	cloudflare	Cloudflare;CF-Challenge!;	Buildout/PropCapsule;[60738b]	https://www.bhhs.com/commercial/search-for-commercial-real-estate
+66	Kidder	200	cloudflare	Cloudflare;	WordPress;LD-JSON;[50743b]	https://kidder.com/property-search/
+67	DAUM	200	cloudflare	Cloudflare;	WordPress;Buildout/PropCapsule;[283957b]	https://daumcommercial.com/property-search/
+68	Ariel	200	nginx	-	[47198b]	https://arielpa.nyc/properties/on-the-market/
+72	TSCG	200	nginx	-	WordPress;Buildout/PropCapsule;LD-JSON;[80061b]	https://tscg.com/property-search/
+71	Foundry	200	cloudflare	Cloudflare;	WordPress;LD-JSON;[291586b]	https://www.foundrycommercial.com/properties/
+69	RIPCO	200	Flywheel/5.1.0	-	Algolia;WordPress;LD-JSON;[67361b]	https://www.ripcony.com/property-listings/
+70	FranklinStreet	200	cloudflare	Cloudflare;	WordPress;Buildout/PropCapsule;LD-JSON;[347881b]	https://franklinst.com/properties/for-sale/
+75	BplusE	307	Sucuri/Cloudproxy	-	[1331b]	https://tradenetlease.com/
+78	NNNmarket	200	Microsoft-IIS/10.0	-	[31845b]	https://nnn.market/
+74	Sands	200	cloudflare	Cloudflare;CF-Challenge!;	WordPress;LD-JSON;Salesforce;[330155b]	https://sandsig.com/listings/
+76	BoulderGroup	200	Sucuri/Cloudproxy	-	[9401b]	https://bouldergroup.com/NNN-Properties-For-Sale.html
+77	KaseGroup	200	nginx	-	WordPress;[86503b]	https://thekasegroup.com/inventory/
+31	MyEListing	200	LiteSpeed	-	[199709b]	https://myelisting.com/
+80	HighStreet	200	cloudflare	Cloudflare;	[20077b]	https://www.highstreetnetlease.com/property-listings/
+82	Hanley	200	cloudflare	Cloudflare;CF-Challenge!;	WordPress;LD-JSON;[292414b]	https://hanleyinvestmentgroup.com/
+83	DisneyIG	200	Microsoft-IIS/10.0	-	[20523b]	https://www.disneyig.com/
+79	Fortis	200	Flywheel/5.1.0	-	WordPress;Buildout/PropCapsule;LD-JSON;[47779b]	https://fortisnetlease.com/net-lease-properties/
+81	NNNPro	200	Vercel	-	Next;[474152b]	https://www.nnnpro.com/properties
+73	KLNB	200	istio-envoy	-	Buildout/PropCapsule;ArcGIS;[12886405b]	https://klnb.propertycapsule.com/cre/portfolio
+84	Silber	200	Flywheel/5.1.0	-	WordPress;LD-JSON;[73867b]	https://silberproperties.com/

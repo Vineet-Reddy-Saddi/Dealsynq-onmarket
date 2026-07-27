@@ -1,0 +1,8 @@
+/* Montserrat (latin subset), vendored — the ACX guidelines specify Montserrat Bold
+   for titles and Montserrat Light for body. Self-hosted rather than CDN-linked so a
+   slow font host cannot leave the UI unstyled. Arial Narrow is the documented PC
+   fallback. */
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:300;font-display:swap;src:url('/vendor/fonts/montserrat-300.woff2') format('woff2');}
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:400;font-display:swap;src:url('/vendor/fonts/montserrat-400.woff2') format('woff2');}
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:600;font-display:swap;src:url('/vendor/fonts/montserrat-600.woff2') format('woff2');}
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:700;font-display:swap;src:url('/vendor/fonts/montserrat-700.woff2') format('woff2');}

@@ -1,0 +1,7 @@
+{
+  "_comment": "Yardi CommercialEdge consumer sites — identical server-rendered HTML, one adapter. Retail = PropertyTypes=3; sale/lease = ListingType. Cloudflare-fronted but plain requests to listing pages work (no headless needed). PropertyShark is Yardi-owned too but has a different (harder) UI — not included here.",
+  "sites": [
+    {"site_key": "commercialcafe", "name": "CommercialCafe", "domain": "www.commercialcafe.com"},
+    {"site_key": "commercialsearch", "name": "CommercialSearch", "domain": "www.commercialsearch.com"}
+  ]
+}

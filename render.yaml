@@ -1,0 +1,28 @@
+# Render blueprint for the DealSynq on-market viewer.
+#
+# Render (not Vercel) because Vercel hosts static output only — this app needs a live
+# Python process to serve the SQLite-backed API. Free tier is enough for a demo; note
+# free instances sleep after ~15 minutes idle and take ~30s to wake on the next request.
+#
+# Deploy:
+#   1. push this repo to GitHub
+#   2. Render -> New -> Blueprint -> pick the repo
+#   3. the build step downloads webapp/listings.db (see DB_URL below)
+#
+# The listings index is ~180 MB, which is too large for git. Host it somewhere with a
+# direct download link (Render disk, S3, Backblaze, or a GitHub Release asset) and set
+# DB_URL in the Render dashboard. If DB_URL is unset the build falls back to any
+# listings.db committed in the repo.
+services:
+  - type: web
+    name: dealsynq-onmarket
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: "./render-build.sh"
+    startCommand: "python webapp/server.py $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.4"
+      - key: DB_URL          # direct-download URL for webapp/listings.db
+        sync: false          # set this in the Render dashboard, not in git

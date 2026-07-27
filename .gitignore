@@ -1,0 +1,19 @@
+# Data artefacts — far too large for git (listings.db ~180MB, details.db ~2GB).
+# Host listings.db as a release asset and point DB_URL at it (see DEPLOY.md).
+data/*.csv
+data/_stage/
+data/_cache/
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.log
+data/_*.log
+webapp/listings.db
+webapp/listings.db-wal
+webapp/listings.db-shm
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

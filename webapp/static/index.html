@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DealSynq — On-Market Retail</title>
+  <!-- Leaflet is vendored, not CDN-loaded: a slow unpkg response used to leave the
+       page blank with no error. markercluster is gone entirely — clustering is done
+       server-side now, so the browser never holds more than ~1,500 markers. -->
+  <link rel="stylesheet" href="/vendor/leaflet.css" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="DealSynq — On-Market Retail">
+      <span class="mark">D</span>
+      <span class="bt">DealSynq<em>On-Market Retail</em></span>
+    </a>
+
+    <div class="searchwrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.6-3.6" />
+      </svg>
+      <input id="q" type="search" placeholder="Search city, address, tenant or type…" autocomplete="off" />
+    </div>
+
+    <div class="seg" id="txn" role="group" aria-label="Transaction type">
+      <button data-txn="sale" class="on">For Sale</button>
+      <button data-txn="lease">For Lease</button>
+      <button data-txn="">All</button>
+    </div>
+
+    <div class="spacer"></div>
+    <div class="count num" id="count">—</div>
+  </header>
+
+  <div class="filters" id="filters">
+    <select id="status" aria-label="Listing status" class="statusSel">
+      <option value="active">On market</option>
+      <option value="new">New this week</option>
+      <option value="delisted">Went off-market</option>
+      <option value="all">All (incl. off-market)</option>
+    </select>
+    <select id="state" aria-label="State"><option value="">All states</option></select>
+    <select id="source" aria-label="Source"><option value="">All sources</option></select>
+    <select id="subtype" aria-label="Property type"><option value="">All retail types</option></select>
+    <select id="priceMin" aria-label="Min price">
+      <option value="">Min price</option>
+      <option value="100000">$100K+</option><option value="250000">$250K+</option>
+      <option value="500000">$500K+</option><option value="1000000">$1M+</option>
+      <option value="2500000">$2.5M+</option><option value="5000000">$5M+</option>
+      <option value="10000000">$10M+</option>
+    </select>
+    <select id="priceMax" aria-label="Max price">
+      <option value="">Max price</option>
+      <option value="500000">&lt; $500K</option><option value="1000000">&lt; $1M</option>
+      <option value="2500000">&lt; $2.5M</option><option value="5000000">&lt; $5M</option>
+      <option value="10000000">&lt; $10M</option><option value="50000000">&lt; $50M</option>
+    </select>
+    <select id="sqftMin" aria-label="Min size">
+      <option value="">Min SF</option>
+      <option value="1000">1,000+</option><option value="2500">2,500+</option>
+      <option value="5000">5,000+</option><option value="10000">10,000+</option>
+      <option value="25000">25,000+</option><option value="50000">50,000+</option>
+    </select>
+    <select id="sqftMax" aria-label="Max size">
+      <option value="">Max SF</option>
+      <option value="2500">&lt; 2,500</option><option value="5000">&lt; 5,000</option>
+      <option value="10000">&lt; 10,000</option><option value="25000">&lt; 25,000</option>
+      <option value="50000">&lt; 50,000</option><option value="200000">&lt; 200,000</option>
+    </select>
+    <select id="capMin" aria-label="Min cap rate">
+      <option value="">Any cap rate</option>
+      <option value="5">5%+</option><option value="6">6%+</option>
+      <option value="7">7%+</option><option value="8">8%+</option>
+      <option value="10">10%+</option>
+    </select>
+    <select id="yearMin" aria-label="Built after">
+      <option value="">Any year built</option>
+      <option value="1980">1980+</option><option value="2000">2000+</option>
+      <option value="2010">2010+</option><option value="2020">2020+</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="moveSearch" checked /> Search as I move</label>
+    <button class="reset" id="reset">Clear all</button>
+  </div>
+
+  <main class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sbhead">
+        <span id="sbcount">Loading…</span>
+        <select id="sort" aria-label="Sort">
+          <option value="new">Newest</option>
+          <option value="price_desc">Price: high → low</option>
+          <option value="price_asc">Price: low → high</option>
+          <option value="sqft_desc">Largest</option>
+          <option value="cap_desc">Cap rate</option>
+          <option value="delisted_desc">Recently off-market</option>
+        </select>
+      </div>
+      <div class="cards" id="cards"></div>
+      <div class="sbmore" id="sbmore" hidden></div>
+    </aside>
+
+    <section class="mapwrap">
+      <div id="map"></div>
+      <div class="mapctl">
+        <button class="mbtn" id="basemap" title="Toggle satellite">Satellite</button>
+        <button class="mbtn" id="fit" title="Zoom to results">Fit results</button>
+      </div>
+      <div class="maphint" id="maphint" hidden></div>
+      <div class="maploading" id="maploading" hidden>Updating…</div>
+    </section>
+  </main>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="drawer" hidden aria-label="Property detail">
+    <button class="dclose" id="dclose" aria-label="Close">✕</button>
+    <div class="dscroll" id="dbody"></div>
+  </aside>
+
+  <script src="/vendor/leaflet.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
