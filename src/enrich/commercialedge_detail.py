@@ -215,7 +215,14 @@ def _acres(v) -> Optional[float]:
     n = _num(v)
     if n is None:
         return None
-    return n / 43560.0 if "sf" in str(v).lower() else n
+    acres = n / 43560.0 if "sf" in str(v).lower() else n
+    # The fact-table scrape occasionally grabs a stray number for this field (seen: a
+    # value that only makes sense as "0.4 SF" divided down to ~9e-6 acres -- no real
+    # retail lot is that size). Reject outside a sane range rather than store a value
+    # already known to be wrong; matches the display-side clamp in webapp/static/app.js.
+    if not (0.001 <= acres <= 10000):
+        return None
+    return acres
 
 
 def _pct(v) -> Optional[float]:

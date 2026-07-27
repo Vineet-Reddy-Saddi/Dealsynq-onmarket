@@ -28,6 +28,7 @@ import datetime as dt
 import json
 import re
 import time
+from html import unescape as html_unescape
 from typing import Any, Optional
 
 from ..common.http_client import HttpClient
@@ -146,7 +147,7 @@ class CrexiDetailFetcher:
 
     def _map_sale(self, core: dict, row: dict) -> None:
         a = self._attrs(core)
-        row["description"] = core.get("marketingDescription") or core.get("description") or ""
+        row["description"] = _strip_html(core.get("marketingDescription") or core.get("description") or "")
         row["price"] = _num(core.get("askingPrice") or a.get("Asking Price"))
         row["year_built"] = _txt(a.get("Year Built"))
         row["year_renovated"] = _txt(a.get("Year Renovated"))
@@ -176,6 +177,23 @@ class CrexiDetailFetcher:
         row["num_suites"] = _num(core.get("numberOfSuites"))
         row["sqft"] = _num(core.get("squareFootageMax") or core.get("squareFootageMin"))
         row["brokerage"] = core.get("brokerageName") or ""
+
+
+_HTML_BREAK = re.compile(r"</(p|div|li|h[1-6])\s*>|<(br|hr)\s*/?>", re.I)
+_HTML_TAG = re.compile(r"<[^>]+>")
+
+
+def _strip_html(s: str) -> str:
+    """Crexi's marketingDescription is broker-authored rich text ("<p>Prime...</p>"),
+    not plain text -- 35,663 rows in one audit. Store clean text so anything reading
+    ``description`` (the web UI, an export, a future feature) doesn't have to know
+    this one source embeds markup. Paragraph breaks become newlines first so multi-
+    paragraph listings don't collapse into a single run-on line."""
+    if not s or "<" not in s:
+        return s
+    s = _HTML_BREAK.sub("\n", s)
+    s = _HTML_TAG.sub("", s)
+    return re.sub(r"\n{3,}", "\n\n", html_unescape(s)).strip()
 
 
 def _txt(v) -> str:

@@ -31,6 +31,21 @@ function decodeEntities(s) {
 const esc = (s) => decodeEntities(String(s ?? '')).replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/* Some sources (Crexi's marketingDescription especially -- 35k+ rows) store their
+ * description as broker-authored rich-text HTML, e.g. "<p>Prime Downtown...</p>". esc()
+ * correctly escapes that for safe display, but escaped tags are still visible as
+ * literal "<p>" text on the page -- technically safe, but unreadable. Strip markup here
+ * via string replacement only (innerHTML is never touched, so this can't execute
+ * anything even from an untrusted source); paragraph/line breaks become newlines first
+ * so multi-paragraph text doesn't collapse into one run-on block. */
+function stripHtml(s) {
+  if (!s || !s.includes('<')) return s || '';
+  const withBreaks = s
+    .replace(/<\/(p|div|li|h[1-6])\s*>/gi, '\n')
+    .replace(/<(br|hr)\s*\/?>/gi, '\n');
+  return decodeEntities(withBreaks.replace(/<[^>]+>/g, '')).replace(/\n{3,}/g, '\n\n').trim();
+}
+
 const state = {
   txn: 'sale', sort: 'new', page: 0, total: 0,
   items: [], loading: false, hasMore: false,
@@ -74,7 +89,9 @@ function clusterIcon(n) {
 function pinIcon(it, active) {
   const p = it.price_n;
   const isLease = it.transaction_type === 'lease';
-  const label = p == null ? '—' : (isLease ? '$' + Number(p).toFixed(0) : money(p));
+  // A bare "—" reads as a rendering glitch rather than a deliberate "no listed price"
+  // -- spell it out instead.
+  const label = p == null ? 'Call' : (isLease ? '$' + Number(p).toFixed(0) : money(p));
   const w = Math.max(40, 14 + String(label).length * 7.4);
   return L.divIcon({
     html: `<div class="pin ${active ? 'on' : ''} ${isLease ? 'lease' : 'sale'}">${esc(label)}</div>`,
@@ -112,17 +129,40 @@ function bboxStr() {
     .map((n) => n.toFixed(5)).join(',');
 }
 
-/** Resolve once the map actually has dimensions. */
+/** Resolve once the map actually has dimensions.
+ *
+ * Belt-and-suspenders: a single ResizeObserver + one fallback timeout worked in local
+ * testing but was still racy on a slower host (Render's free tier cold-starts well
+ * behind a local dev server) -- the container could reach its final size after the
+ * observer had already fired once with a stale reading, leaving Leaflet's cached size
+ * at 0x0 with no further correction. Four independent triggers now race to be the one
+ * that calls invalidateSize(): the ResizeObserver, `window.load` (fires only once
+ * every subresource -- fonts, tiles' first request -- has settled), a short poll for
+ * the first few seconds, and a last-resort timeout. */
 function whenSized() {
   return new Promise((resolve) => {
+    const el = document.getElementById('map');
     const ok = () => { const s = map.getSize(); return s.x > 0 && s.y > 0; };
-    if (ok()) return resolve();
-    const t = setTimeout(() => { map.invalidateSize(); resolve(); }, 1500);
-    const ro = new ResizeObserver(() => {
+    let done = false;
+    const settle = () => {
+      if (done) return;
       map.invalidateSize();
-      if (ok()) { clearTimeout(t); ro.disconnect(); resolve(); }
-    });
-    ro.observe(document.getElementById('map'));
+      if (ok()) { done = true; cleanup(); resolve(); }
+    };
+    if (ok()) return resolve();
+
+    const ro = new ResizeObserver(settle);
+    ro.observe(el);
+    window.addEventListener('load', settle);
+    const poll = setInterval(settle, 250);
+    const stop = setTimeout(() => { done = true; cleanup(); resolve(); }, 6000);
+
+    function cleanup() {
+      ro.disconnect();
+      window.removeEventListener('load', settle);
+      clearInterval(poll);
+      clearTimeout(stop);
+    }
   });
 }
 
@@ -172,14 +212,39 @@ async function loadMap() {
     hint(d.total ? `${num(d.total)} listings · click a cluster or zoom in for individual properties`
                  : 'No listings match these filters');
   } else {
+    // Multiple listings at the exact same coordinates are common here -- a property
+    // cross-listed on several marketplaces, or a lease listing split into several
+    // spaces at one address. Stacked exactly, only the top marker is visible or
+    // clickable. Spread duplicates in a small pixel-radius ring around the true point
+    // (computed in screen space via the map's own projection, so the separation looks
+    // the same at any zoom level, rather than a fixed lat/lng offset that would shrink
+    // to nothing zoomed out and balloon zoomed in).
+    const groups = new Map();
     for (const it of d.items) {
       if (it.lat_r == null) continue;
-      const m = L.marker([it.lat_r, it.lng_r], { icon: pinIcon(it, false), riseOnHover: true })
-        .on('click', () => openDetail(it.pk))
-        .on('mouseover', () => highlightCard(it.pk, true))
-        .on('mouseout', () => highlightCard(it.pk, false))
-        .addTo(layer);
-      state.markers.set(it.pk, m);
+      const key = it.lat_r.toFixed(5) + ',' + it.lng_r.toFixed(5);
+      (groups.get(key) || groups.set(key, []).get(key)).push(it);
+    }
+    for (const group of groups.values()) {
+      const n = group.length;
+      const center = map.latLngToContainerPoint([group[0].lat_r, group[0].lng_r]);
+      group.forEach((it, i) => {
+        let latlng;
+        if (n === 1) {
+          latlng = [it.lat_r, it.lng_r];
+        } else {
+          const angle = (2 * Math.PI * i) / n;
+          const radius = 16 + Math.min(n, 8) * 2;
+          const pt = L.point(center.x + radius * Math.cos(angle), center.y + radius * Math.sin(angle));
+          latlng = map.containerPointToLatLng(pt);
+        }
+        const m = L.marker(latlng, { icon: pinIcon(it, false), riseOnHover: true })
+          .on('click', () => openDetail(it.pk))
+          .on('mouseover', () => highlightCard(it.pk, true))
+          .on('mouseout', () => highlightCard(it.pk, false))
+          .addTo(layer);
+        state.markers.set(it.pk, m);
+      });
     }
     hint(d.capped
       ? `Showing ${num(d.items.length)} of ${num(d.total)} here — zoom in for the rest`
@@ -342,7 +407,7 @@ function detailHtml(d) {
 
   // The enricher appends broker highlights to description; split them back apart so
   // the marketing bullets render as a list instead of a wall of text.
-  let desc = e.description || '';
+  let desc = stripHtml(e.description || '');
   let highlights = [];
   const hi = desc.indexOf('Highlights:');
   if (hi >= 0) {
@@ -361,7 +426,13 @@ function detailHtml(d) {
                 : null),
     factRow('Cap rate', e.cap_rate ? Number(e.cap_rate).toFixed(2) + '%' : null),
     factRow('Building size', (e.sqft || d.sqft_n) ? num(e.sqft || d.sqft_n) + ' SF' : null),
-    factRow('Lot size', e.lot_size_acres ? e.lot_size_acres + ' ac' : null),
+    // A handful of enriched rows (1,325 across 4 sources, a source-side parsing
+    // artifact) carry an absurd acreage like 9.18e-6 -- displaying that raw would dump
+    // ~20 digits into the fact card. Round for display, and treat anything outside a
+    // sane range (no real retail lot is under ~0.001ac or over 10,000ac) as absent
+    // rather than show a number known to be wrong.
+    factRow('Lot size', (e.lot_size_acres && e.lot_size_acres >= 0.001 && e.lot_size_acres <= 10000)
+      ? Number(e.lot_size_acres).toFixed(2) + ' ac' : null),
     factRow('Year built', e.year_built),
     factRow('Year renovated', e.year_renovated),
     factRow('Stories', e.stories),
