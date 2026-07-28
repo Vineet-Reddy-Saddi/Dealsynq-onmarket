@@ -7,6 +7,9 @@
       "app_id": "5EP10X9C13",
       "api_key": "b9135619f78bf538f0142a17544f0c64",
       "index": "prod_entries",
+      "_detail_note": "Newmark's LIST feed is Algolia, but its inventory is actually hosted on Buildout (objectIDs read buildout_<id>_<txn>_enUs and images come from the buildout-production bucket). The nmrk.com property page embeds a Buildout plugin whose token is below, and nmrk.com's own url slug resolves directly against it -- so BuildoutDetailFetcher enriches Newmark unchanged. Hash re-extractable via: grep the property page for token:\"<40 hex>\".",
+      "buildout_hash": "58e0b0dd25f4956b52239a56e5d54865c8af0008",
+      "buildout_domain": "www.nmrk.com",
       "base_filters": [
         [
           "sectionGroup:Properties"

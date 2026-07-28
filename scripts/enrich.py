@@ -37,6 +37,7 @@ from src.enrich.buildout_detail import BuildoutDetailFetcher              # noqa
 from src.enrich.commercialedge_detail import CommercialEdgeDetailFetcher  # noqa: E402
 from src.enrich.costar_detail import CoStarDetailFetcher                  # noqa: E402
 from src.enrich.crexi_detail import CrexiDetailFetcher                    # noqa: E402
+from src.enrich.ripco_detail import RipcoDetailFetcher                    # noqa: E402
 
 DATA = ROOT / "data"
 DB = DATA / "details.db"
@@ -49,25 +50,37 @@ FETCHERS = {
     "cityfeet": lambda: CoStarDetailFetcher("cityfeet"),
     "commercialcafe": lambda: CommercialEdgeDetailFetcher("commercialcafe"),
     "commercialsearch": lambda: CommercialEdgeDetailFetcher("commercialsearch"),
+    "ripco": RipcoDetailFetcher,
 }
 
 
 # Fetchers whose fetch() needs source_url to resolve a detail page (see
-# BuildoutDetailFetcher docstring) rather than the bare listing id.
-NEEDS_URL_HINT: set[str] = set()
+# BuildoutDetailFetcher docstring) rather than the bare listing id. RIPCO is the same
+# shape: its ids are WordPress post ids, but the page is only addressable by permalink.
+NEEDS_URL_HINT: set[str] = {"ripco"}
+
+
+def _register_buildout(site_key: str, hash_: str, domain: str) -> None:
+    FETCHERS[site_key] = (
+        lambda: BuildoutDetailFetcher(site_key=site_key, hash=hash_, domain=domain))
+    NEEDS_URL_HINT.add(site_key)
 
 
 def _load_buildout_fetchers() -> None:
     cfg = CONFIG / "buildout_sites.json"
-    if not cfg.exists():
-        return
-    data = json.loads(cfg.read_text(encoding="utf-8"))
-    for site in data.get("sites", []):
-        FETCHERS[site["site_key"]] = (
-            lambda s=site: BuildoutDetailFetcher(
-                site_key=s["site_key"], hash=s["hash"], domain=s["domain"])
-        )
-        NEEDS_URL_HINT.add(site["site_key"])
+    if cfg.exists():
+        for site in json.loads(cfg.read_text(encoding="utf-8")).get("sites", []):
+            _register_buildout(site["site_key"], site["hash"], site["domain"])
+
+    # An Algolia-listed site can still be Buildout-hosted underneath (Newmark is: its
+    # objectIDs are buildout_<id>_<txn>_enUs). Those declare a buildout_hash in
+    # algolia_sites.json and enrich through the very same fetcher.
+    cfg = CONFIG / "algolia_sites.json"
+    if cfg.exists():
+        for site in json.loads(cfg.read_text(encoding="utf-8")).get("sites", []):
+            if site.get("buildout_hash"):
+                _register_buildout(site["site_key"], site["buildout_hash"],
+                                   site.get("buildout_domain", ""))
 
 
 _load_buildout_fetchers()

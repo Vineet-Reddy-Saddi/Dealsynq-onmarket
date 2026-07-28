@@ -48,7 +48,10 @@ FACT_KEYS = {
     "year renovated": ("year_renovated", "text"),
     "available sf": ("sqft", "num"),
     "building size": ("sqft", "num"),
+    "size summary": ("sqft", "num"),          # Newmark's label for the same figure
+    "total space available": ("sqft", "num"),
     "lot size": ("lot_size_acres", "num"),
+    "total lot size": ("lot_size_acres", "num"),
     "cap rate": ("cap_rate", "num"),
     "zoning": ("zoning", "text"),
     "apn": ("apn", "text"),
@@ -59,7 +62,8 @@ FACT_KEYS = {
     "occupancy": ("occupancy", "text"),
     "tenancy": ("tenancy", "text"),
     "sale price": ("price", "num"),   # sale-only: "Lease Rate" is a $/SF/(mo|yr) string,
-}                                      # not a bare price, so it's deliberately not mapped here.
+    "price": ("price", "num"),         # not a bare price, so it's deliberately not mapped.
+}
 
 
 class BuildoutDetailFetcher:
@@ -170,7 +174,19 @@ def _facts(page: str) -> dict[str, str]:
     m = re.search(r'slug="property_details_custom_table".*?<table[^>]*>(.*?)</table>', page, re.S)
     if not m:
         return {}
-    return {mm.group(1).strip(): _text(mm.group(2)) for mm in _TABLE_ROW.finditer(m.group(1))}
+    return {_fact_label(mm.group(1)): _text(mm.group(2)) for mm in _TABLE_ROW.finditer(m.group(1))}
+
+
+def _fact_label(raw: str) -> str:
+    """Normalize a fact-table label to its FACT_KEYS form.
+
+    Roughly half these brokerages render the label with a trailing colon
+    ("Building Size:" vs "Building Size") -- an audit of 9,457 enriched rows found
+    1,696 colon-suffixed "building size" against 1,449 bare ones. Matching the raw
+    string silently dropped every colon variant, losing sqft on 5,055 rows,
+    year_built on 2,929, price on 2,822 and lot size on 1,164.
+    """
+    return raw.strip().rstrip(":").strip().lower()
 
 
 def _section_value(page: str, name: str) -> str:
@@ -225,9 +241,12 @@ def _text(s: str) -> str:
 
 
 def _num(v) -> Optional[float]:
+    """Sign is deliberately not parsed -- brokers write approximate sizes as "+/-1,440
+    SF", and reading that leading "-" as a minus yields a negative building. Every
+    field this feeds (sqft, price, acres, cap rate, counts) is non-negative by nature."""
     if not v:
         return None
-    m = re.search(r"-?[\d,]+(?:\.\d+)?", str(v))
+    m = re.search(r"[\d,]+(?:\.\d+)?", str(v))
     if not m:
         return None
     try:
