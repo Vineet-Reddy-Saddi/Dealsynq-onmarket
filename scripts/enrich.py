@@ -33,12 +33,14 @@ csv.field_size_limit(10_000_000)
 
 from src.common.details_store import DetailsStore      # noqa: E402
 from src.common.schema import SALE, LEASE              # noqa: E402
+from src.enrich.buildout_detail import BuildoutDetailFetcher              # noqa: E402
 from src.enrich.commercialedge_detail import CommercialEdgeDetailFetcher  # noqa: E402
 from src.enrich.costar_detail import CoStarDetailFetcher                  # noqa: E402
 from src.enrich.crexi_detail import CrexiDetailFetcher                    # noqa: E402
 
 DATA = ROOT / "data"
 DB = DATA / "details.db"
+CONFIG = ROOT / "config"
 # CityFeet enriches through Showcase (shared CoStar ids), but rows stay attributed to
 # the site the listing came from, so per-source coverage remains honest.
 FETCHERS = {
@@ -48,6 +50,28 @@ FETCHERS = {
     "commercialcafe": lambda: CommercialEdgeDetailFetcher("commercialcafe"),
     "commercialsearch": lambda: CommercialEdgeDetailFetcher("commercialsearch"),
 }
+
+
+# Fetchers whose fetch() needs source_url to resolve a detail page (see
+# BuildoutDetailFetcher docstring) rather than the bare listing id.
+NEEDS_URL_HINT: set[str] = set()
+
+
+def _load_buildout_fetchers() -> None:
+    cfg = CONFIG / "buildout_sites.json"
+    if not cfg.exists():
+        return
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    for site in data.get("sites", []):
+        FETCHERS[site["site_key"]] = (
+            lambda s=site: BuildoutDetailFetcher(
+                site_key=s["site_key"], hash=s["hash"], domain=s["domain"])
+        )
+        NEEDS_URL_HINT.add(site["site_key"])
+
+
+_load_buildout_fetchers()
+
 FILES = {SALE: "listings_for_sale.csv", LEASE: "listings_for_lease.csv"}
 
 
@@ -70,6 +94,24 @@ def load_ids(site: str, ttype: str) -> list[str]:
     return ids
 
 
+def load_url_map(site: str, ttype: str) -> dict[str, str]:
+    """source_listing_id -> source_url, for fetchers that need the original listing
+    URL to resolve a detail page (BuildoutDetailFetcher)."""
+    out: dict[str, str] = {}
+    for base in (DATA, DATA / "_stage"):
+        path = base / FILES[ttype]
+        if not path.exists():
+            continue
+        with open(path, encoding="utf-8") as fh:
+            for r in csv.DictReader(fh):
+                if r["source_site"] != site or r["delisted_on"]:
+                    continue
+                lid = r["source_listing_id"]
+                if lid not in out:
+                    out[lid] = r["source_url"]
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Per-property detail enrichment")
     ap.add_argument("--site", default="crexi", choices=sorted(FETCHERS))
@@ -87,8 +129,12 @@ def main() -> int:
 
     ids = load_ids(args.site, args.ttype)
     if not ids:
+        # Not an error -- a brokerage can legitimately have zero active listings of one
+        # transaction type (e.g. sale-only). Must stay exit 0: the wrapper script now
+        # runs under `set -e` for the circuit-breaker fix, and a nonzero exit here
+        # would abort the whole multi-site run over an empty, expected result set.
         print(f"no active {args.site}/{args.ttype} listings found")
-        return 1
+        return 0
     done = set() if args.refetch else store.have(args.site)
     todo = [i for i in ids if i not in done]
     if args.sample:
@@ -97,6 +143,8 @@ def main() -> int:
         args.verbose = True
     elif args.limit:
         todo = todo[: args.limit]
+
+    url_map = load_url_map(args.site, args.ttype) if args.site in NEEDS_URL_HINT else {}
 
     workers = 1 if args.sample else max(1, args.workers)
     print(f"{args.site}/{args.ttype}: {len(ids):,} active, {len(done):,} already "
@@ -111,17 +159,34 @@ def main() -> int:
 
     def work(item):
         idx, lid = item
+        if url_map:
+            return pool[idx % workers].fetch(lid, args.ttype, url_hint=url_map.get(lid))
         return pool[idx % workers].fetch(lid, args.ttype)
 
-    with ThreadPoolExecutor(max_workers=workers) as ex:
+    # Circuit breaker: a source that starts soft-rate-limiting us returns clean "error"
+    # rows for every request, not a crash -- so nothing here raises on its own, and
+    # Executor.map submits every task up front, so merely breaking out of the results
+    # loop would NOT stop already-queued work (they'd keep running until the `with`
+    # block's shutdown(wait=True) finished them anyway). 15 straight errors is treated
+    # as a block, not bad luck: cancel whatever's still queued and exit 1 immediately
+    # rather than burning the rest of the batch against a wall.
+    CONSECUTIVE_ERROR_LIMIT = 15
+    consecutive_errors = 0
+    blocked = False
+
+    ex = ThreadPoolExecutor(max_workers=workers)
+    try:
         for row in ex.map(work, enumerate(todo)):
             with lock:
                 n += 1
                 batch.append(row)
                 if row.get("status") == "ok":
                     ok += 1
+                    consecutive_errors = 0
                 else:
                     bad += 1
+                    if row.get("status") == "error":
+                        consecutive_errors += 1
                 if args.verbose:
                     print(f"  [{n}/{len(todo)}] {row['source_listing_id']} {row.get('status')} "
                           f"yr={row.get('year_built') or '-'} sqft={row.get('sqft') or '-'} "
@@ -134,7 +199,17 @@ def main() -> int:
                     print(f"  ...{n:,}/{len(todo):,} ok={ok:,} err={bad:,} "
                           f"({rate:.1f}/s, eta {(len(todo)-n)/max(rate,1e-9)/3600:.1f}h)",
                           flush=True)
+                if consecutive_errors >= CONSECUTIVE_ERROR_LIMIT:
+                    blocked = True
+                    print(f"  !! {consecutive_errors} consecutive errors -- looks like a "
+                          f"block, not bad luck. Stopping this run early.", flush=True)
+                    break
+    finally:
+        ex.shutdown(wait=not blocked, cancel_futures=blocked)
     store.upsert_many(batch)
+    if blocked:
+        store.close()
+        return 1
     dt = time.time() - t0
     print(f"done: {ok:,} ok, {bad:,} failed in {dt/60:.1f}m -> {DB}")
     print("store:", store.counts())
