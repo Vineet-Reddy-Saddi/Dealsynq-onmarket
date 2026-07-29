@@ -157,7 +157,11 @@ class CrexiDetailFetcher:
         row["units"] = _num(a.get("Units"))
         row["apn"] = _txt(a.get("APN"))
         row["zoning"] = _txt(a.get("Permitted Zoning") or a.get("Zoning"))
-        row["lot_size_acres"] = _num(a.get("Lot Size (acres)"))
+        # Brokers fill in one or the other, rarely both -- roughly a fifth of Crexi sale
+        # listings state the lot only in square feet, so reading acres alone left those
+        # empty.
+        row["lot_size_acres"] = _acres(a.get("Lot Size (acres)"),
+                                       a.get("Lot Size (SqFt)"))
         row["sqft"] = _num(a.get("Square Footage"))
         row["net_rentable_sqft"] = _num(a.get("Net Rentable (SqFt)"))
         row["price_per_sqft"] = _num(a.get("Price/SqFt") or a.get("Price per SqFt"))
@@ -202,6 +206,21 @@ def _txt(v) -> str:
     if isinstance(v, (list, tuple)):
         return ", ".join(str(x) for x in v)
     return str(v).strip()
+
+
+SQFT_PER_ACRE = 43560.0
+
+
+def _acres(acres_v, sqft_v) -> Optional[float]:
+    """Lot size in acres, falling back to the square-foot field.
+
+    Clamped to the same plausible range the other fetchers use, so a stray value can't
+    render as a wall of decimal places in the UI.
+    """
+    for n in (_num(acres_v), (_num(sqft_v) or 0) / SQFT_PER_ACRE or None):
+        if n is not None and 0.001 <= n <= 10000:
+            return n
+    return None
 
 
 def _num(v) -> Optional[float]:

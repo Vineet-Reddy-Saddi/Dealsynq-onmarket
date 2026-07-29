@@ -37,6 +37,7 @@ from src.enrich.buildout_detail import BuildoutDetailFetcher              # noqa
 from src.enrich.commercialedge_detail import CommercialEdgeDetailFetcher  # noqa: E402
 from src.enrich.costar_detail import CoStarDetailFetcher                  # noqa: E402
 from src.enrich.crexi_detail import CrexiDetailFetcher                    # noqa: E402
+from src.enrich.nnnpro_detail import NnnProDetailFetcher                  # noqa: E402
 from src.enrich.ripco_detail import RipcoDetailFetcher                    # noqa: E402
 
 DATA = ROOT / "data"
@@ -51,6 +52,7 @@ FETCHERS = {
     "commercialcafe": lambda: CommercialEdgeDetailFetcher("commercialcafe"),
     "commercialsearch": lambda: CommercialEdgeDetailFetcher("commercialsearch"),
     "ripco": RipcoDetailFetcher,
+    "nnnpro": NnnProDetailFetcher,
 }
 
 

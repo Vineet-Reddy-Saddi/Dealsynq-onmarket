@@ -77,6 +77,7 @@ class CommercialEdgeDetailFetcher:
 
         product, place = self._ld(page)
         facts = self._facts(page)
+        faq = self._faq(page)
 
         row["description"] = _clean(product.get("description"))
         imgs = product.get("image")
@@ -99,9 +100,15 @@ class CommercialEdgeDetailFetcher:
         row["tenancy"] = facts.get("tenancy", "")
         row["occupancy"] = facts.get("occupancy", "")
         row["stories"] = _num(facts.get("stories"))
-        row["sqft"] = _sf(facts.get("sqft"))
+        # Building size is frequently absent from the visible fact table but stated in
+        # the FAQ schema block ("...a total square footage of 20,200 SF"), which is why
+        # sqft was empty on every one of the ~54k rows from these two sites.
+        row["sqft"] = _sf(facts.get("sqft")) or faq.get("sqft")
         row["lot_size_acres"] = _acres(facts.get("lot"))
         row["cap_rate"] = _pct(facts.get("cap_rate"))
+        row["parking_spaces"] = _num(facts.get("parking_ratio")) or faq.get("parking")
+        if not row["year_built"] and faq.get("year_built"):
+            row["year_built"] = faq["year_built"]
 
         lat, lng = _LAT.search(page), _LNG.search(page)
         row["raw_json"] = {
@@ -109,6 +116,7 @@ class CommercialEdgeDetailFetcher:
             "product": product,
             "place": place,
             "facts": facts,
+            "faq": faq,
             # Stored under the same shape the CoStar fetcher uses, so the index's
             # coordinate backfill reads both without special-casing.
             "listing": {"location": {
@@ -163,6 +171,57 @@ class CommercialEdgeDetailFetcher:
                 elif node.get("@type") == "Place" and not place:
                     place = node
         return product, place
+
+    @staticmethod
+    def _faq(page: str) -> dict[str, Any]:
+        """Pull figures out of the FAQPage schema block.
+
+        These sites answer "how big is it / when was it built / how much parking" in a
+        JSON-LD FAQ aimed at search engines, and for many listings that block is the
+        *only* place the number appears -- the rendered fact table omits it. Answers are
+        prose, so each is matched by the phrasing the template uses.
+        """
+        out: dict[str, Any] = {}
+        for block in _LD.findall(page):
+            try:
+                data = json.loads(block)
+            except ValueError:
+                continue
+            # A block may be a bare node, a list, or wrapped in @graph -- accept all
+            # three rather than assuming the shape these pages happen to use today.
+            if isinstance(data, list):
+                nodes = data
+            elif isinstance(data, dict):
+                nodes = data.get("@graph") or [data]
+            else:
+                nodes = []
+            for node in nodes:
+                if not isinstance(node, dict) or node.get("@type") != "FAQPage":
+                    continue
+                for qa in node.get("mainEntity") or []:
+                    ans = htmllib.unescape(
+                        ((qa.get("acceptedAnswer") or {}).get("text") or ""))
+                    m = re.search(r"total square footage of ([\d,]+)", ans, re.I)
+                    if m:
+                        out["sqft"] = _num(m.group(1))
+                    else:
+                        # A second template says "a total size of X SF". That one is not
+                        # trustworthy on its own: it carries genuine building area
+                        # (56,192) on some listings and a *land* figure in acres
+                        # mislabelled "SF" (0.42) on others. A floor keeps the real
+                        # values and drops the mislabelled ones -- no retail building is
+                        # under 100 sq ft.
+                        m = re.search(r"total size of ([\d,.]+) SF", ans, re.I)
+                        n = _num(m.group(1)) if m else None
+                        if n is not None and n >= 100:
+                            out.setdefault("sqft", n)
+                    m = re.search(r"built in (\d{4})", ans, re.I)
+                    if m:
+                        out["year_built"] = m.group(1)
+                    m = re.search(r"([\d,]+) parking spaces?", ans, re.I)
+                    if m:
+                        out["parking"] = _num(m.group(1))
+        return out
 
     @staticmethod
     def _facts(page: str) -> dict[str, str]:

@@ -78,3 +78,52 @@ def strip_rsc_date(v):
     if isinstance(v, str) and v.startswith("$D"):
         return v[2:]
     return v
+
+
+_CHUNK = re.compile(r'^([0-9a-f]+):([\[{].*)$', re.M)
+
+
+def chunk_table(blob: str) -> dict[str, object]:
+    """Map each ``<hex-id>:<json>`` flight row to its parsed value.
+
+    A flight payload is deduplicated: any value used more than once is hoisted into its
+    own numbered row and referenced elsewhere as the string ``"$<id>"``. Without this
+    table a detail record reads as ``{"lease_type": "$3e", "contacts": "$27"}`` -- the
+    interesting fields are all references.
+    """
+    out: dict[str, object] = {}
+    for m in _CHUNK.finditer(blob):
+        frag = _match_object(blob, m.start(2)) if m.group(2)[0] == "{" else None
+        if frag is None:
+            # Arrays and anything unbalanced: fall back to a permissive line parse.
+            try:
+                out[m.group(1)] = json.loads(m.group(2))
+            except ValueError:
+                pass
+            continue
+        try:
+            out[m.group(1)] = json.loads(frag)
+        except ValueError:
+            pass
+    return out
+
+
+def resolve_refs(value, table: dict[str, object], _depth: int = 0):
+    """Recursively swap ``"$<id>"`` references for their value from ``chunk_table``.
+
+    Depth-limited because flight graphs can be cyclic (a node referencing an ancestor),
+    which would otherwise recurse forever. ``$D``-prefixed dates and the ``$`` element
+    sentinel are left alone -- they are values, not references.
+    """
+    if _depth > 6:
+        return value
+    if isinstance(value, str):
+        if len(value) > 1 and value[0] == "$" and value[1] not in "D$":
+            ref = table.get(value[1:])
+            return resolve_refs(ref, table, _depth + 1) if ref is not None else None
+        return strip_rsc_date(value)
+    if isinstance(value, list):
+        return [resolve_refs(v, table, _depth + 1) for v in value]
+    if isinstance(value, dict):
+        return {k: resolve_refs(v, table, _depth + 1) for k, v in value.items()}
+    return value

@@ -89,9 +89,21 @@ def _image(raw_json: str):
         return None
     for p in IMAGE_PATHS:
         v = _dig(d, p)
-        if isinstance(v, str) and v.startswith("http"):
+        if isinstance(v, str) and v.startswith("http") and not _is_expiring(v):
             return v
     return None
+
+
+def _is_expiring(url: str) -> bool:
+    """True for a presigned URL that will not outlive this build.
+
+    NNN Pro (Surmount) serves every image as an S3 link signed with
+    ``X-Amz-Expires=3600`` and the bucket refuses unsigned reads, so the URL is dead an
+    hour after it is scraped -- all 376 stored NNN Pro card images were already 403ing.
+    Storing one guarantees a broken image; returning None lets the card fall back to its
+    placeholder, which is honest.
+    """
+    return "X-Amz-Signature" in url or "X-Amz-Expires" in url
 
 
 def _f(v):
