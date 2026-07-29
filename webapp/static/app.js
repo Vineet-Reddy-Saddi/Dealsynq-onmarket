@@ -305,10 +305,17 @@ async function loadMap() {
     // (computed in screen space via the map's own projection, so the separation looks
     // the same at any zoom level, rather than a fixed lat/lng offset that would shrink
     // to nothing zoomed out and balloon zoomed in).
+    // Grouped by *screen position*, not by coordinate. Rounding lat/lng only catches
+    // listings at literally the same point, but what makes a marker unreachable is
+    // sharing pixels: two addresses a few metres apart differ in the 5th decimal place
+    // yet land on the same pixel, and a live check over Manhattan found 34 such stacks,
+    // some four deep, where every marker but the top one was unclickable.
+    const CELL = 22;   // px; below roughly half a pin's width markers visibly collide
     const groups = new Map();
     for (const it of d.items) {
       if (it.lat_r == null) continue;
-      const key = it.lat_r.toFixed(5) + ',' + it.lng_r.toFixed(5);
+      const p = map.latLngToContainerPoint([it.lat_r, it.lng_r]);
+      const key = Math.round(p.x / CELL) + ':' + Math.round(p.y / CELL);
       (groups.get(key) || groups.set(key, []).get(key)).push(it);
     }
     for (const group of groups.values()) {
@@ -321,12 +328,17 @@ async function loadMap() {
         } else {
           const angle = (2 * Math.PI * i) / n;
           // Circle-packing math, not a guessed constant: for n pins evenly spaced on a
-          // ring of radius R, the gap between neighbours is 2R*sin(pi/n). The previous
-          // fixed "16 + 2px/pin" radius stayed far below what a ~60px-wide price pill
-          // needs even at n=3 (22px vs the ~35px actually required), so spread pins
-          // still visually overlapped -- just no longer pixel-identical.
-          const PIN_W = 60, GAP = 10;
-          const radius = Math.max(20, (PIN_W + GAP) / (2 * Math.sin(Math.PI / n)));
+          // ring of radius R, the gap between neighbours is 2R*sin(pi/n).
+          //
+          // Hard-capped, though. That formula grows without bound in n, and once
+          // markers are grouped by screen cell a busy block can hold twenty of them --
+          // which asked for a 224px ring and drew pins whole streets away from their
+          // real address. A marker in the wrong place is a worse lie than an
+          // overlapping one, so past the cap the ring stops growing and some residual
+          // overlap is accepted; that density is what zooming in is for.
+          const PIN_W = 60, GAP = 10, MAX_R = 30;
+          const radius = Math.min(MAX_R,
+            Math.max(20, (PIN_W + GAP) / (2 * Math.sin(Math.PI / n))));
           const pt = L.point(center.x + radius * Math.cos(angle), center.y + radius * Math.sin(angle));
           latlng = map.containerPointToLatLng(pt);
         }
