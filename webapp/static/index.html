@@ -104,8 +104,13 @@
     <section class="mapwrap">
       <div id="map"></div>
       <div class="mapctl">
+        <button class="mbtn" id="draw" title="Draw a trade area to search inside">Draw area</button>
         <button class="mbtn" id="basemap" title="Toggle satellite">Satellite</button>
         <button class="mbtn" id="fit" title="Zoom to results">Fit results</button>
+      </div>
+      <div class="areabar" id="areabar" hidden>
+        <span id="areatext">Drawn area</span>
+        <button type="button" class="linkbtn" id="areaclear">Clear area</button>
       </div>
       <div class="maphint" id="maphint" hidden></div>
       <div class="maploading" id="maploading" hidden>Updating…</div>

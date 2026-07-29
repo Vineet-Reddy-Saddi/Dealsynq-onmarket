@@ -50,6 +50,8 @@ const state = {
   txn: 'sale', sort: 'new', page: 0, total: 0,
   items: [], loading: false, hasMore: false,
   activePk: null, markers: new Map(), mapReq: 0, listReq: 0,
+  // A drawn trade area (L.LatLngBounds) and its rectangle, when one is pinned.
+  area: null, areaRect: null,
 };
 
 /* ---------------------------------------------------------------- map ---- */
@@ -109,13 +111,27 @@ function pinIcon(it, active) {
 const FILTER_IDS = ['status', 'state', 'source', 'subtype', 'priceMin', 'priceMax',
                     'sqftMin', 'sqftMax', 'capMin', 'yearMin'];
 
+const SKELETON = Array.from({ length: 6 }, () => `
+  <div class="skel" aria-hidden="true">
+    <div class="sk sk-thumb"></div>
+    <div>
+      <div class="sk sk-line w1"></div>
+      <div class="sk sk-line w2"></div>
+      <div class="sk sk-line w3"></div>
+    </div>
+  </div>`).join('');
+
 function params(extra = {}) {
   const p = new URLSearchParams();
   if (state.txn) p.set('txn', state.txn);
   const q = $('#q').value.trim();
   if (q) p.set('q', q);
   for (const id of FILTER_IDS) {
-    const v = $('#' + id).value;
+    const el = $('#' + id);
+    const v = el.value;
+    // Mark the control itself so an engaged filter is visible at a glance. `status`
+    // always carries a value, so it is styled as the primary lens instead.
+    if (id !== 'status') el.classList.toggle('on', !!v);
     if (v) p.set(id, v);
   }
   for (const [k, v] of Object.entries(extra)) if (v != null) p.set(k, v);
@@ -127,12 +143,76 @@ function params(extra = {}) {
  *  single point and every query matches zero rows — so callers must treat null as
  *  "no bounds filter" rather than sending a degenerate box. */
 function bboxStr() {
+  // A drawn trade area outranks the viewport: the point of drawing one is to keep the
+  // result set pinned to that area while you pan and zoom around inside it.
+  if (state.area) {
+    const b = state.area;
+    return [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]
+      .map((n) => n.toFixed(5)).join(',');
+  }
   const sz = map.getSize();
   if (!sz.x || !sz.y) return null;
   const b = map.getBounds();
   if (b.getNorth() - b.getSouth() < 1e-6) return null;
   return [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]
     .map((n) => n.toFixed(5)).join(',');
+}
+
+/** Drag a rectangle on the map to pin the search to that trade area.
+ *
+ * Implemented directly on Leaflet's own events rather than pulling in Leaflet.draw --
+ * a rectangle is a mousedown/mousemove/mouseup and the vendored bundle stays small.
+ * Map dragging is suspended while arming so the drag draws instead of panning. */
+function initAreaDraw() {
+  let origin = null, rect = null;
+  const btn = $('#draw');
+
+  const stop = () => {
+    btn.classList.remove('on');
+    map.dragging.enable();
+    map.getContainer().style.cursor = '';
+    map.off('mousedown', onDown).off('mousemove', onMove).off('mouseup', onUp);
+  };
+  const onDown = (e) => {
+    origin = e.latlng;
+    rect = L.rectangle([origin, origin], { className: 'drawrect', weight: 2, interactive: false })
+      .addTo(map);
+  };
+  const onMove = (e) => { if (origin && rect) rect.setBounds(L.latLngBounds(origin, e.latlng)); };
+  const onUp = (e) => {
+    if (!origin) return;
+    const b = L.latLngBounds(origin, e.latlng);
+    origin = null;
+    stop();
+    // A click rather than a drag: treat as a cancel, not a zero-area box that would
+    // match nothing and look like the app broke.
+    if (map.latLngToContainerPoint(b.getNorthEast())
+           .distanceTo(map.latLngToContainerPoint(b.getSouthWest())) < 12) {
+      if (rect) { map.removeLayer(rect); rect = null; }
+      return;
+    }
+    if (state.areaRect) map.removeLayer(state.areaRect);
+    state.area = b;
+    state.areaRect = rect;
+    rect = null;
+    $('#areabar').hidden = false;
+    refreshAll();
+  };
+
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('on')) { stop(); return; }
+    btn.classList.add('on');
+    map.dragging.disable();
+    map.getContainer().style.cursor = 'crosshair';
+    map.on('mousedown', onDown).on('mousemove', onMove).on('mouseup', onUp);
+  });
+
+  $('#areaclear').addEventListener('click', () => {
+    if (state.areaRect) map.removeLayer(state.areaRect);
+    state.area = null; state.areaRect = null;
+    $('#areabar').hidden = true;
+    refreshAll();
+  });
 }
 
 /** Resolve once the map actually has dimensions.
@@ -275,19 +355,49 @@ async function loadList(reset) {
   if (state.loading) return;
   state.loading = true;
   const id = ++state.listReq;
-  if (reset) { state.page = 0; state.items = []; $('#cards').innerHTML = ''; }
+  if (reset) {
+    state.page = 0; state.items = [];
+    // Only on a first page, and only if the list is currently empty -- re-filtering an
+    // already-populated list should not flash skeletons over results that are about to
+    // be replaced in a single frame.
+    if (!$('#cards').children.length) $('#cards').innerHTML = SKELETON;
+  }
   const p = params({ sort: state.sort, page: state.page, size: 40, bbox: bboxStr() });
   let d;
   try {
-    d = await (await fetch('/api/listings?' + p)).json();
-  } catch { state.loading = false; return; }
+    const res = await fetch('/api/listings?' + p);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    d = await res.json();
+  } catch {
+    state.loading = false;
+    if (id !== state.listReq) return;      // superseded; a newer request owns the UI now
+    // A dropped request used to return silently, leaving the list blank and the count
+    // showing whatever the previous response said -- indistinguishable from a genuine
+    // "no results", which is exactly how this surfaced: an empty sidebar reading "No
+    // listings match" beside a map that had loaded hundreds of pins from its own
+    // separate request. Free-tier cold starts make that first fetch a real failure case,
+    // so say so, and offer a way out.
+    if (reset) {
+      $('#cards').innerHTML =
+        '<div class="empty">Couldn’t load listings. <button type="button" class="linkbtn" id="sbretry">Retry</button></div>';
+      $('#sbretry')?.addEventListener('click', () => loadList(true));
+    }
+    $('#sbcount').textContent = 'Couldn’t load';
+    return;
+  }
   if (id !== state.listReq) { state.loading = false; return; }
 
+  // Clear only once a winning response is in hand. Clearing before the fetch opened a
+  // window where a superseded or failed request emptied the list and nothing refilled it.
+  if (reset) $('#cards').innerHTML = '';
   state.total = d.total; state.hasMore = d.hasMore;
   state.items.push(...d.items);
   renderCards(d.items);
   $('#count').textContent = `${num(d.total)} listings`;
-  $('#sbcount').textContent = d.total ? `${num(d.total)} in view` : 'No listings match';
+  $('#sbcount').textContent = d.total
+    ? `${num(d.total)} ${state.area ? 'in drawn area' : 'in view'}`
+    : 'No listings match';
+  if (state.area) $('#areatext').textContent = `${num(d.total)} listings in drawn area`;
   $('#sbmore').hidden = !d.hasMore;
   $('#sbmore').textContent = d.hasMore ? 'Scroll for more…' : '';
   if (reset && !d.total) {
@@ -671,6 +781,7 @@ map.on('moveend zoomend', () => {
 /* ---------------------------------------------------------------- boot ---- */
 (async function boot() {
   await whenSized();       // never query with a collapsed bbox
+  initAreaDraw();
 
   // Restore whatever the URL describes before the first query, then open the property
   // it names (so a shared link lands directly on that listing).

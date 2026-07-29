@@ -58,7 +58,9 @@
 
   --topbar: 62px;
   --filters: 52px;
-  --sidebar-w: 420px;
+  /* Widened alongside the larger card thumbnail -- at 420px the text column fell to
+     ~207px, which truncated most street addresses mid-word. */
+  --sidebar-w: 464px;
 }
 
 * { box-sizing: border-box; }
@@ -144,6 +146,13 @@ strong, b { font-weight: 600; }
 }
 .filters select:hover { border-color: var(--grey); }
 .filters select:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-tint); }
+/* A filter that is actually narrowing the results looks different from an idle one.
+ * With ten controls in a row, "which of these am I currently filtering on?" is
+ * otherwise only answerable by reading every dropdown. */
+.filters select.on {
+  border-color: var(--navy); color: var(--navy); font-weight: 600;
+  background-color: var(--navy-tint);
+}
 .chk {
   flex: none; display: flex; align-items: center; gap: 7px;
   color: var(--muted); white-space: nowrap; cursor: pointer; font-size: 13px;
@@ -183,19 +192,55 @@ strong, b { font-weight: 600; }
 .sbmore { padding: 16px; text-align: center; color: var(--faint); font-size: 13px; }
 .empty { padding: 48px 24px; text-align: center; color: var(--muted); }
 
+/* Skeleton rows while the first page loads. Matching the real card's geometry keeps the
+ * list from jumping when results arrive, and reads as progress rather than a stall --
+ * which matters most on the free-tier cold start, where that wait is longest. */
+.skel { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 15px;
+        padding: 16px 18px; border-bottom: 1px solid var(--line-2); }
+.skel .sk { border-radius: var(--r); background: var(--surface-2); position: relative; overflow: hidden; }
+.skel .sk-thumb { height: 108px; }
+.skel .sk-line { height: 11px; border-radius: 5px; margin-bottom: 9px; }
+.skel .sk-line.w1 { width: 42%; height: 16px; }
+.skel .sk-line.w2 { width: 78%; }
+.skel .sk-line.w3 { width: 60%; }
+.skel .sk::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, #ffffffcc, transparent);
+  animation: shimmer 1.25s infinite;
+}
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .skel .sk::after { animation: none; }
+  .card:hover .thumb img { transform: none; }
+}
+
 /* --------------------------------------------------------------- card ---- */
+/* Listing photography is the strongest scanning cue in a list like this, so the thumb
+ * is sized to actually read as a storefront rather than a favicon, and the card gets
+ * enough padding that price / name / address form three distinct lines of hierarchy
+ * instead of one dense block. */
 .card {
-  display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 13px;
-  padding: 13px 15px; cursor: pointer;
+  display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 15px;
+  padding: 16px 18px; cursor: pointer;
   border-bottom: 1px solid var(--line-2); border-left: 3px solid transparent;
-  transition: background .12s ease, border-color .12s ease;
+  transition: background .14s ease, border-color .14s ease, box-shadow .14s ease;
 }
-.card:hover, .card.hot { background: var(--surface-2); }
-.card.hot { border-left-color: var(--green); }
+.card:hover { background: var(--surface-2); }
+.card:hover .thumb { box-shadow: var(--shadow-sm); }
+.card:hover .thumb img { transform: scale(1.04); }
+.card.hot {
+  background: var(--green-tint); border-left-color: var(--green);
+  box-shadow: inset 0 0 0 1px #6EA94622;
+}
+.card:focus-visible {
+  outline: 2px solid var(--blue); outline-offset: -2px; background: var(--surface-2);
+}
 .thumb {
-  position: relative; width: 124px; height: 90px; flex: none;
+  position: relative; width: 148px; height: 108px; flex: none;
   border-radius: var(--r); overflow: hidden; background: var(--surface-2);
+  transition: box-shadow .14s ease;
 }
+.thumb img { transition: transform .35s cubic-bezier(.2,.7,.3,1); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .noimg {
   width: 100%; height: 100%; display: grid; place-items: center;
@@ -217,28 +262,44 @@ strong, b { font-weight: 600; }
 .card.gone .cname { text-decoration: line-through; text-decoration-color: #A33A3A66; }
 .cbody { min-width: 0; }
 .cprice {
-  font-family: var(--title); font-weight: 700; font-size: 17px;
-  color: var(--navy); font-variant-numeric: tabular-nums;
+  font-family: var(--title); font-weight: 700; font-size: 19px; line-height: 1.15;
+  color: var(--navy); font-variant-numeric: tabular-nums; letter-spacing: -.01em;
 }
 .cprice small { font-family: var(--body); font-weight: 400; font-size: 11px; color: var(--muted); }
-.cprice .muted { font-family: var(--body); font-size: 13px; color: var(--muted); font-weight: 400; }
+.cprice .muted { font-family: var(--body); font-size: 14px; color: var(--muted); font-weight: 400; }
 .cname {
-  font-weight: 600; margin-top: 3px; color: var(--ink); font-family: var(--title);
-  font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.caddr {
-  color: var(--muted); font-size: 12.5px;
+  font-weight: 600; margin-top: 5px; color: var(--ink); font-family: var(--title);
+  font-size: 13.5px; line-height: 1.35;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.cbits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.caddr {
+  color: var(--muted); font-size: 12.5px; margin-top: 1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cbits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .cbits span {
-  font-size: 11px; padding: 2px 8px; border-radius: 3px;
+  font-size: 11px; padding: 3px 9px; border-radius: 999px;
   background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
 }
 .csrc {
-  margin-top: 6px; font-family: var(--title); font-size: 9.5px; color: var(--faint);
+  margin-top: 7px; font-family: var(--title); font-size: 9.5px; color: var(--faint);
   text-transform: uppercase; letter-spacing: .1em;
 }
+
+/* ------------------------------------------------------ drawn trade area ---- */
+.drawrect {
+  stroke: var(--navy); fill: var(--navy); fill-opacity: .07;
+  stroke-dasharray: 6 4; stroke-linecap: round;
+}
+.areabar {
+  position: absolute; left: 50%; transform: translateX(-50%); top: 14px; z-index: 500;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 14px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+  font-size: 13px; color: var(--ink); white-space: nowrap;
+}
+.areabar[hidden] { display: none; }
+.mbtn.on { background: var(--navy); color: #fff; border-color: var(--navy); }
 
 /* ---------------------------------------------------------------- map ---- */
 .mapwrap { position: relative; min-width: 0; min-height: 0; }
@@ -375,6 +436,12 @@ strong, b { font-weight: 600; }
   margin: 2px 0 0; font-weight: 600; color: var(--ink);
   font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
 }
+.linkbtn {
+  background: none; border: 0; padding: 0; font: inherit; cursor: pointer;
+  color: var(--blue); text-decoration: underline; text-underline-offset: 2px;
+}
+.linkbtn:hover { color: var(--navy); }
+
 /* Trade-area demographics. The table can outgrow a narrow drawer, so it scrolls inside
  * its own wrapper rather than widening the page (see the overflow rules on .layout). */
 .demwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); }
