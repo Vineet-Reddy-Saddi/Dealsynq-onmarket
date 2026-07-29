@@ -8,6 +8,13 @@ data/*.db-wal
 data/*.db-shm
 data/*.log
 data/_*.log
+# ...but demographics.db (~22MB) IS committed. It is small enough for git, and keeping
+# it in the repo means the deploy needs no third release asset and no extra env var --
+# server.py picks it up from the working tree. Rebuilt only when Census publishes a new
+# ACS vintage (annually), so it does not churn history.
+!data/demographics.db
+# Cached Census source files for scripts/build_demographics.py (~120MB of ACS .dat)
+data/_census_cache/
 webapp/listings.db
 webapp/listings.db-wal
 webapp/listings.db-shm

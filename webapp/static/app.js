@@ -403,6 +403,41 @@ const factRow = (label, value) =>
   value == null || value === '' ? '' :
   `<div class="fact"><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`;
 
+// Trade-area demographics, rendered as one row per ring so the 1/3/5-mile figures can be
+// read against each other -- the useful comparison for retail siting is how fast the
+// catchment grows with distance, not any single ring in isolation.
+const DEMOG_ROWS = [
+  ['Population', 'pop', (v) => num(v)],
+  ['Households', 'households', (v) => num(v)],
+  // Deliberately "Avg." not "Median": this is aggregate income / households. See the
+  // aggregation note in scripts/build_demographics.py.
+  ['Avg. household income', 'avg_household_income', (v) => '$' + num(v)],
+  ['Employees', 'employees', (v) => num(v)],
+  ['Median age', 'approx_median_age', (v) => Number(v).toFixed(1)],
+];
+
+function demographicsHtml(dem) {
+  if (!dem) return '';
+  const rings = [1, 3, 5].filter((r) => dem['pop_' + r + 'mi']);
+  if (!rings.length) return '';
+  const head = rings.map((r) => `<th>${r} mi</th>`).join('');
+  const body = DEMOG_ROWS.map(([label, key, fmt]) => {
+    const cells = rings.map((r) => {
+      const v = dem[key + '_' + r + 'mi'];
+      return `<td>${v == null || v === '' ? '—' : esc(fmt(v))}</td>`;
+    }).join('');
+    return `<tr><th scope="row">${esc(label)}</th>${cells}</tr>`;
+  }).join('');
+  return `<section class="dsec">
+      <h3>Trade area demographics</h3>
+      <div class="demwrap"><table class="dem">
+        <thead><tr><th scope="col"></th>${head}</tr></thead>
+        <tbody>${body}</tbody>
+      </table></div>
+      <div class="demsrc">US Census — 2020 Centers of Population, ACS 2019–2023 5-year estimates</div>
+    </section>`;
+}
+
 function detailHtml(d) {
   const e = d.detail || {};
   const isLease = d.transaction_type === 'lease';
@@ -500,6 +535,7 @@ function detailHtml(d) {
     ${highlights.length ? `<section class="dsec"><h3>Investment highlights</h3>
       <ul class="hl">${highlights.map((h) => `<li>${esc(h)}</li>`).join('')}</ul></section>` : ''}
     ${desc ? `<section class="dsec"><h3>Description</h3><p class="ddesc">${esc(desc)}</p></section>` : ''}
+    ${demographicsHtml(d.demographics)}
     ${brokers ? `<section class="dsec"><h3>Listing contacts</h3>
       <ul class="brokers">${brokers}</ul>
       ${e.brokerage ? `<div class="bfirm">${esc(e.brokerage)}</div>` : ''}</section>` : ''}

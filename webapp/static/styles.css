@@ -375,6 +375,23 @@ strong, b { font-weight: 600; }
   margin: 2px 0 0; font-weight: 600; color: var(--ink);
   font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
 }
+/* Trade-area demographics. The table can outgrow a narrow drawer, so it scrolls inside
+ * its own wrapper rather than widening the page (see the overflow rules on .layout). */
+.demwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); }
+.dem { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.dem th, .dem td { padding: 9px 13px; text-align: right; white-space: nowrap; }
+.dem thead th {
+  font-family: var(--title); font-size: 9.5px; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--faint); font-weight: 600;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.dem tbody th {
+  text-align: left; font-weight: 500; color: var(--faint); font-size: 12.5px;
+}
+.dem tbody td { font-weight: 600; color: var(--ink); }
+.dem tbody tr + tr th, .dem tbody tr + tr td { border-top: 1px solid var(--line); }
+.demsrc { margin-top: 8px; font-size: 10.5px; color: var(--faint); }
+
 .hl { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
 .hl li { color: var(--ink); }
 .hl li::marker { color: var(--green); }

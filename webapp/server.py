@@ -67,6 +67,10 @@ SORTS = {
 
 
 DETAILS_DB = HERE.parent / "data" / "details.db"
+DEMOG_DB = HERE.parent / "data" / "demographics.db"
+#: Coordinates in demographics.db are rounded to this many places (see
+#: scripts/build_demographics.py) -- listings on the same corner share a trade area.
+DEMOG_DP = 4
 
 #: Zoom at which the map stops aggregating and shows individual listings. Below this a
 #: nationwide view would need a quarter-million markers; above it, cells hold so few
@@ -95,12 +99,22 @@ def _conn() -> sqlite3.Connection:
                 con.execute("ATTACH DATABASE ? AS det", (str(DETAILS_DB),))
             except sqlite3.Error:
                 pass
+    if DEMOG_DB.exists():
+        try:
+            con.execute("ATTACH DATABASE ? AS dem", (f"file:{DEMOG_DB}?mode=ro",))
+        except sqlite3.Error:
+            try:
+                con.execute("ATTACH DATABASE ? AS dem", (str(DEMOG_DB),))
+            except sqlite3.Error:
+                pass
     return con
 
 
 CON = _conn()
 HAS_DETAILS = bool(CON.execute(
     "SELECT COUNT(*) FROM pragma_database_list WHERE name='det'").fetchone()[0])
+HAS_DEMOG = bool(CON.execute(
+    "SELECT COUNT(*) FROM pragma_database_list WHERE name='dem'").fetchone()[0])
 _STATS_CACHE: dict | None = None
 
 
@@ -303,7 +317,35 @@ class Handler(BaseHTTPRequestHandler):
             return {"error": "not found"}
         out = dict(row)
         out["detail"] = self._enriched(out) if HAS_DETAILS else None
+        out["demographics"] = self._demographics(out) if HAS_DEMOG else None
         return out
+
+    @staticmethod
+    def _demographics(listing: dict) -> dict | None:
+        """1/3/5-mile trade-area profile for this listing's coordinates.
+
+        Keyed on the rounded coordinate rather than the listing, so the ~347k listings
+        (many sharing a corner, and every expanded space record sharing its parent's
+        position) resolve to ~198k precomputed trade areas.
+        """
+        lat, lng = listing.get("lat_r"), listing.get("lng_r")
+        if lat is None or lng is None:
+            return None
+        try:
+            r = CON.execute(
+                "SELECT * FROM dem.demographics WHERE lat=? AND lng=?",
+                (round(lat, DEMOG_DP), round(lng, DEMOG_DP)),
+            ).fetchone()
+        except sqlite3.Error:
+            return None
+        if not r:
+            return None
+        d = dict(r)
+        d.pop("lat", None)
+        d.pop("lng", None)
+        # Drop rings with no population -- an empty ring is missing data to a reader,
+        # and showing "0 people" next to a real 5-mile figure reads as a bug.
+        return d if any(v for k, v in d.items() if k.startswith("pop_")) else None
 
     @staticmethod
     def _enriched(listing: dict) -> dict | None:
